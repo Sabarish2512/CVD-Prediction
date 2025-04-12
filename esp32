@@ -1,0 +1,59 @@
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+#include <WiFi.h>
+
+const char* ssid = "Your_SSID";
+const char* password = "Your_PASSWORD";
+
+const char* mqtt_server = "your-aws-endpoint.iot.region.amazonaws.com";
+const int mqtt_port = 8883;
+
+// Root CA, certificate, and private key paths in SPIFFS or directly in code
+const char* root_ca = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----";
+const char* device_cert = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----";
+const char* private_key = "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----";
+
+WiFiClientSecure net;
+PubSubClient client(net);
+
+void connectAWS() {
+  while (!client.connected()) {
+    Serial.print("Connecting to AWS IoT...");
+    if (client.connect("CVDDevice")) {
+      Serial.println("Connected.");
+    } else {
+      Serial.print("Failed: ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+
+  net.setCACert(root_ca);
+  net.setCertificate(device_cert);
+  net.setPrivateKey(private_key);
+
+  client.setServer(mqtt_server, mqtt_port);
+}
+
+void loop() {
+  if (!client.connected()) {
+    connectAWS();
+  }
+  client.loop();
+
+  // Replace with real sensor readings
+  float heartRate = 80.0;
+  float spo2 = 97.5;
+
+  String payload = "{\"heartRate\": " + String(heartRate) + ", \"spo2\": " + String(spo2) + "}";
+  client.publish("cvd/data", payload.c_str());
+  Serial.println("Data sent: " + payload);
+
+  delay(5000);
+}
